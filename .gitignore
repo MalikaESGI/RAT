@@ -3,3 +3,5 @@
 dist
 *.spec
 captures
+build
+*.txt
