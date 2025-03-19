@@ -2,6 +2,7 @@ import cv2
 import os
 import sys
 import time
+from datetime import datetime
 
 # Force le programme à se placer dans le bon dossier
 if getattr(sys, 'frozen', False):
@@ -20,7 +21,9 @@ def capture_webcam_image():
         return
     ret, frame = cap.read()
     if ret:
-        path = os.path.join(OUTPUT_DIR, "webcam_capture.jpg")
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"webcam_capture_{timestamp}.jpg"
+        path = os.path.join(OUTPUT_DIR, filename)
         cv2.imwrite(path, frame)
         print(f"[+] Image sauvegardée : {path}")
     cap.release()

