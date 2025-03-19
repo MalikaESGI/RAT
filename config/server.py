@@ -66,6 +66,7 @@ def handle_client(client_socket, client_address):
     """Gestion des connexions clients."""
     print(f"[+] Connexion de {client_address}")
     clients[client_address] = client_socket
+
     while True:
         try:
             data = client_socket.recv(1048576).decode('utf-8')
@@ -74,6 +75,7 @@ def handle_client(client_socket, client_address):
         except:
             break
     client_socket.close()
+
     del clients[client_address]
     print(f"[-] Déconnexion de {client_address}")
 
@@ -83,10 +85,12 @@ def accept_connections():
         client_socket, client_address = server_socket.accept()
         threading.Thread(target=handle_client, args=(client_socket, client_address)).start()
 
+
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server_socket.bind((SERVER_HOST, SERVER_PORT))
 server_socket.listen(5)
 print(f"[*] Serveur en écoute sur {SERVER_HOST}:{SERVER_PORT}...")
+
 
 threading.Thread(target=accept_connections, daemon=True).start()
 
@@ -104,3 +108,4 @@ finally:
     server_socket.close()
     conn.close()
     print("[*] Serveur arrêté proprement.")
+

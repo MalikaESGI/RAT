@@ -1,7 +1,9 @@
+./build
+./dist
 .env
 *.db
-dist
 *.spec
 captures
 build
 *.txt
+
