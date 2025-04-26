@@ -21,6 +21,7 @@ CAPTURE_DIR = "captures"
 
 
 REMOTE_PORT = 5555
+SCREEN_PORT = 5001
 
 
 def remote_view():
@@ -156,6 +157,9 @@ try:
         elif command:
             for client in clients.values():
                 client.send(command.encode('utf-8'))
+
+
+        
 except KeyboardInterrupt:
     print("\n[!] Arrêt du serveur par l'utilisateur.")
 finally:
