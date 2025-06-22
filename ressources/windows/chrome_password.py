@@ -12,7 +12,7 @@ import json
 from datetime import datetime
 
 # Configuration du serveur
-SERVER_IP = "192.168.206.1"
+SERVER_IP = "192.168.211.1"
 SERVER_PORT = 4444
 
 # Fonction pour récupérer la clé principale
