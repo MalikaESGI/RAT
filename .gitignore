@@ -7,4 +7,6 @@ captures
 build
 *.txt
 screenshot
+voice
+keylogs
 
