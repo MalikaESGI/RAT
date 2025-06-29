@@ -4,7 +4,7 @@ import pickle
 import struct
 import time
 
-SERVER_IP = "192.168.211.1"
+SERVER_IP = "192.168.196.1"
 REMOTE_PORT = 5555
 
 def stream_screen():

