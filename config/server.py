@@ -137,6 +137,36 @@ def process_data(data, client_ip):
         # print(f"[Erreur] lors du traitement des données : {e}")
         print("")
 
+
+
+def receive_file(conn, dest_dir, prefix):
+    header = conn.recv(128)
+    decoded = header.decode(errors="ignore")
+    if header.startswith(prefix.encode()):
+        parts = decoded.split(":")
+        if len(parts) >= 3:
+            filename = parts[1]
+            filesize = int(parts[2])
+            os.makedirs(dest_dir, exist_ok=True)
+            save_path = os.path.join(dest_dir, filename)
+            with open(save_path, "wb") as f:
+                received = 0
+                while received < filesize:
+                    chunk = conn.recv(min(4096, filesize - received))
+                    if not chunk:
+                        break
+                    f.write(chunk)
+                    received += len(chunk)
+            print(f"[+] Fichier reçu : {save_path}")
+        else:
+            print(f"[!] Erreur dans le header {prefix}")
+    else:
+        print(f"[!] Header inattendu (pas {prefix}) : {decoded}")
+
+
+
+
+        
 def handle_client(client_socket, client_address):
     """Gestion des connexions clients."""
     print(f"[+] Connexion de {client_address}")
