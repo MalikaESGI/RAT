@@ -181,25 +181,6 @@ def handle_client(client_socket, client_address):
                 process_data(data, client_address[0])
         except:
             break
-    # while True:
-    #     try:
-    #         raw_size = client_socket.recv(4)
-    #         if not raw_size:
-    #             break
-    #         size = struct.unpack("!I", raw_size)[0]
-    #         data = b""
-    #         while len(data) < size:
-    #             packet = client_socket.recv(size - len(data))
-    #             if not packet:
-    #                 break
-    #             data += packet
-
-    #         print(f"[DEBUG] Payload reçu : {len(data)} octets")  # <= ajoute ça
-    #         process_data(data.decode('utf-8'), client_address[0])
-
-    #     except Exception as e:
-    #         print(f"[EXCEPTION] {e}")  # <= active temporairement
-    #         break
 
     client_socket.close()
 

@@ -1,42 +1,21 @@
+# test_voice.py
 import sounddevice as sd
 from scipy.io.wavfile import write
 import os
-import tempfile
 import time
 
-DURATION = 10  # secondes
+DURATION = 5  # secondes
+FS = 44100
 
-def record_voice(duration=DURATION):
-    fs = 44100  # fréquence d’échantillonnage
-    print("[+] Enregistrement vocal en cours...")
-    audio = sd.rec(int(duration * fs), samplerate=fs, channels=1, dtype='int16')
-    sd.wait()
-    temp_file = os.path.join(tempfile.gettempdir(), f"recording_{int(time.time())}.wav")
-    write(temp_file, fs, audio)
-    return temp_file
+output_dir = os.path.join(os.getcwd(), "voice")
+os.makedirs(output_dir, exist_ok=True)
 
-def send_file(file_path, sock):
-    try:
-        filename = os.path.basename(file_path)
-        filesize = os.path.getsize(file_path)
-        header = f"voice:{filename}:{filesize}".encode().ljust(128)
-        sock.sendall(header)
+print("[*] Enregistrement en cours...")
+audio = sd.rec(int(DURATION * FS), samplerate=FS, channels=1, dtype='int16')
+sd.wait()
 
-        with open(file_path, "rb") as f:
-            while True:
-                chunk = f.read(4096)
-                if not chunk:
-                    break
-                sock.sendall(chunk)
-        print(f"[+] Fichier audio envoyé : {filename}")
-    except Exception as e:
-        print(f"[!] Erreur d'envoi : {e}")
+filename = f"voice_{int(time.time())}.wav"
+path = os.path.join(output_dir, filename)
+write(path, FS, audio)
 
-def record_and_send(sock):
-    try:
-        temp_wav = record_voice()
-        send_file(temp_wav, sock)
-        os.remove(temp_wav)
-        print("[+] Fichier temporaire supprimé.")
-    except Exception as e:
-        print(f"[!] Erreur dans record_and_send : {e}")
+print("[+] Audio enregistré dans :", path)

