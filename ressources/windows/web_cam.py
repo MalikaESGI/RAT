@@ -4,7 +4,7 @@ import sys
 import time
 from datetime import datetime
 
-# Force le programme à se placer dans le bon dossier
+
 if getattr(sys, 'frozen', False):
     BASE_DIR = os.path.dirname(sys.executable)
 else:

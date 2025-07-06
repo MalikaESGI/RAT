@@ -1,7 +1,7 @@
 import sqlite3
 import os
 
-# Assure-toi que le fichier sera créé dans le dossier `bdd/`
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 db_path = os.path.join(BASE_DIR, "rat.db")
 

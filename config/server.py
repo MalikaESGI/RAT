@@ -11,7 +11,7 @@ import io
 import cv2
 import numpy as np
 import time
-import queue
+
 
 
 SERVER_HOST = '0.0.0.0'
