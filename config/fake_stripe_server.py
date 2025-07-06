@@ -22,8 +22,8 @@ def create_checkout_session():
                 "quantity": 1,
             }],
             mode="payment",
-            success_url="http://192.168.162.1:4242/success",
-            cancel_url="http://192.168.162.1:4242/cancel",
+            success_url="http://192.168.3.1:4242/success",
+            cancel_url="http://192.168.3.1:4242/cancel",
         )
         return redirect(session.url, code=303)
     except Exception as e:
